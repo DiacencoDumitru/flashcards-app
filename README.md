@@ -1,202 +1,134 @@
-### 1. Flashcard Project
+# Flashcards App - Production-Style CLI Learning Tool
 
-This is the first stage of a flashcard-style application.  
-The goal is to create a basic structure for storing terms and their definitions.
----------
+A command-driven Java application for managing flashcards, tracking mistakes, and running quiz sessions.
+It demonstrates stateful CLI architecture, command pattern usage, persistence flows, and user-session logging.
 
-- Read two inputs from the user:
+## Highlights
 
-1. A **term**
-2. Its **definition**
+- Command-based CLI architecture with pluggable actions (`add`, `remove`, `import`, `export`, `ask`, `log`, `hardest card`, `reset stats`, `exit`)
+- In-memory domain model for cards, unique definitions, and per-card mistake counters
+- File import/export with override behavior for existing terms
+- Session transcript logging to file for reproducible debugging
+- Automated startup/shutdown data handling via `-import` and `-export` arguments
+- Feedback-rich quiz mode with support for "definition belongs to another card" hints
 
-- Display the inputs in the following format:
+## Architecture
 
-```
-Example 1:
-------------
-Card:
-> purchase
-purchase
-Definition:
-> buy
-buy
-------------
-Example 2:
-Card:
-> cos'(x)
-cos'(x)
-Definition:
-> -sin(x)
--sin(x)
-```
+```mermaid
+flowchart LR
+    User["CLI User"] --> App["FlashcardsApp"]
+    App --> Manager["FlashcardsManager"]
 
-### 2. Basic Flashcards Creation and Guessing Mechanism
+    Manager --> CommandMap["Command Registry"]
+    CommandMap --> Add["AddCommand"]
+    CommandMap --> Remove["RemoveCommand"]
+    CommandMap --> Ask["AskCommand"]
+    CommandMap --> Import["ImportCommand"]
+    CommandMap --> Export["ExportCommand"]
+    CommandMap --> Log["LogCommand"]
+    CommandMap --> Hardest["HardestCardCommand"]
+    CommandMap --> Reset["ResetStatsCommand"]
+    CommandMap --> Exit["ExitCommand"]
 
-- Read two lines of input: a term and its definition.
-- Ask the user to input a definition for the given term.
-- Compare the user's answer with the correct definition.
-- Print whether the user's answer is correct or wrong.
-
-```
-Example:
--------------
-> print()
-> outputs text
-> outputs text
-
-Output:
--------------
-Your answer is right!
+    Manager --> Cards["cards: Map<String,String>"]
+    Manager --> Definitions["definitions: Set<String>"]
+    Manager --> Mistakes["mistakes: Map<String,Integer>"]
+    Manager --> SessionLog["log: List<String>"]
+    Manager --> Files["Text files (import/export/log)"]
 ```
 
-### 3. Multiple Flashcards Game
+### How it works (high level)
 
-- Allow users to create multiple flashcards.
-- Ask the user how many flashcards they want to create.
-- For each flashcard, input a term and its definition.
-- The program will then quiz the user by asking for the definition of each term.
+- `FlashcardsApp` initializes `FlashcardsManager` and starts an input loop.
+- `FlashcardsManager` maps user actions to command objects through a command registry.
+- Commands delegate core operations back to manager methods (add/remove/quiz/import/export/logging/statistics).
+- Card state and mistake counters are kept in memory and optionally synchronized with files.
+- Import/export CLI args handle automatic load on startup and save on exit.
 
-------------------
+## Engineering Challenges
 
-- Ask for the number of cards.
-- For each card, ask for the term and its definition.
-- Quiz the user with each term and check their answers.
+- Keeping command handlers cohesive while reusing shared state safely
+- Enforcing uniqueness for both terms and definitions
+- Preserving deterministic user feedback and session logs for every interaction
+- Handling persistence edge cases (missing files, parse errors, overwrite semantics)
 
-```
-Example:
-> 2
---------
-Card #1:
-> print()
-The definition for card #1:
-> outputs text
----------
-Card #2:
-> str()
-The definition for card #2:
-> converts to a string
----------
-Print the definition of "print()":
-> outputs text
-Correct!
----------
-Print the definition of "str()":
-> outputs text
-Wrong. The right answer is "converts to a string".
-```
+## My Contribution
 
-### 4. Handle Duplicate Terms and Definitions
+- Implemented command-driven orchestration around `FlashcardsManager`.
+- Added card lifecycle actions and quiz flow with detailed correctness feedback.
+- Implemented import/export persistence including replacement behavior for existing terms.
+- Added mistake analytics (`hardest card`) and reset mechanics.
+- Implemented full session logging and CLI startup/shutdown file automation.
 
-- Prevent users from entering duplicate terms or definitions.
-- If the user tries to input a term or definition that already exists, prompt them to try again.
-- If the user enters a wrong definition for the requested term but the definition is correct for another term, provide
-  feedback with the correct term.
+## Tech Stack
 
-------------
+- **Language:** Java 17
+- **Paradigm:** Object-oriented CLI with Command pattern
+- **Persistence:** Plain text files (`import`, `export`, `log`)
+- **Build/Run:** `javac` / `java`
 
-- Ask for a term and its definition.
-- If the term or definition already exists, show an appropriate error message.
-- If the definition matches another term, inform the user of the correct answer and the term that matches their
-  definition.
+## Quick Start
 
-```
-Example:
-> 2
--------
-Card #1:
-> print()
-The definition for card #1:
-> outputs text
--------
-Card #2:
-> print()
-The term "print()" already exists. Try again:
-> str()
--------
-The definition for card #2:
-> outputs text
-The definition "outputs text" already exists. Try again:
-> converts to a string
-------
-Print the definition of "print()":
-> outputs text
-Correct!
+### Prerequisites
+
+- Java 17+
+
+### Compile and run
+
+```bash
+git clone https://github.com/DiacencoDumitru/flashcards-app.git
+cd flashcards-app
+javac -d out $(find src -name "*.java")
+java -cp out flashcards.FlashcardsApp
 ```
 
-### 5. Flashcard Menu and File Operations
+Run with startup/shutdown persistence:
 
-- Add a menu that lets users perform various actions:
-- add: Add a new flashcard.
-- remove: Remove an existing flashcard.
-- import: Import flashcards from a file.
-- export: Export flashcards to a file.
-- ask: Quiz the user on all the flashcards.
-- exit: Exit the program.
-
----------------
-
-- Display the available actions to the user.
-- Based on the user's action, either add, remove, import, export flashcards, or quiz the user.
-
-```
-Example:
---------
-Input the action (add, remove, import, export, ask, exit):
-> add
-Card #1:
-> print()
-The definition for card #1:
-> outputs text
-The pair ("print()":"outputs text") has been added.
--------------
-Input the action (add, remove, import, export, ask, exit):
-> ask
-Print the definition of "print()":
-> outputs text
-Correct!
+```bash
+java -cp out flashcards.FlashcardsApp -import cards.txt -export cards.txt
 ```
 
-### 6. File Operations (Import/Export)
+## How to Verify
 
-- Enable the user to save flashcards to a file and load them back into the program.
-- When importing, overwrite existing cards if the term is already present.
-- When exporting, save the cards to a file in a simple format (.txt)
+```bash
+# compile
+javac -d out $(find src -name "*.java")
 
------------
+# run app and manually execute:
+# add -> ask -> hardest card -> reset stats -> export -> exit
+java -cp out flashcards.FlashcardsApp
 
-- Use the import action to load flashcards from a file.
-- Use the export action to save flashcards to a file.
-
-```
-Example:
--------
-Input the action (add, remove, import, export, ask, exit):
-> export
-File name:
-> flashcards.txt
-The cards have been saved.
---------
-Input the action (add, remove, import, export, ask, exit):
-> import
-File name:
-> flashcards.txt
-2 cards have been loaded.
+# run with automated import/export args
+java -cp out flashcards.FlashcardsApp -import cards.txt -export cards.txt
 ```
 
-### 7. IMPORTant
+## CLI Commands
 
-Files are used to save progress and restore it the next time the user runs the program. It's tedious to print the
-actions manually. Sometimes you can just forget to do it! Let's add run arguments that define which file to read at the
-start and which file to save at the exit.
+- `add` - create a card with unique term and definition
+- `remove` - delete a card by term
+- `import` - load cards from file
+- `export` - save cards to file
+- `ask` - run quiz prompts
+- `log` - save full session dialogue to file
+- `hardest card` - show cards with max mistakes
+- `reset stats` - clear mistake counters
+- `exit` - terminate application (and apply `-export` if configured)
 
-1. If `-import IMPORT` is passed, where IMPORT is the file name, read the initial card set from the external file and
-   print
-   the message n cards have been loaded. as the first line of the output, where n is the number of cards loaded from the
-   external file. If such an argument is not provided, the set of cards should initially be empty and no message about
-   card
-   loading should be output.
-2. If `-export EXPORT` is passed, where EXPORT is the file name, write all cards that are in the program memory into
-   this
-   file after the user has entered exit, and the last line of the output should be n cards have been saved., where n is
-   the
-   number of flashcards in the set.
+## Why This Project
+
+This project demonstrates practical backend-oriented fundamentals in a CLI context:
+
+- state management and command dispatch
+- persistence and recovery workflows
+- user-facing validation and error feedback
+- maintainable separation between orchestration and actions
+
+## Project Structure
+
+- `src/flashcards` - application entry and manager/orchestration
+- `src/command` - command implementations and command interface
+- `README.md` - project documentation
+
+## Author
+
+Dumitru Diacenco, Java Backend Engineer
